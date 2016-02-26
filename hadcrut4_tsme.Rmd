@@ -1,0 +1,102 @@
+---
+title: "Global Temperature"
+author: "Doug McNeall"
+date: "24 February 2016"
+output: ioslides_presentation
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+## A quick ARIMA model of Global Temperatures
+
+In this exercise we'll
+
+1. Download and load temperature data into R
+2. Fit an ARIMA model
+3. Forecast future temperatures
+
+
+## Loading HadCRUT4 data
+
+```{r load data, echo=TRUE}
+
+url <- 'http://www.metoffice.gov.uk/hadobs/hadcrut4/data/current/time_series/HadCRUT.4.4.0.0.annual_ns_avg.txt'
+
+# exclude 2016, because it is only a partial year
+hadcrut4.dat <- head(read.table(file=url),-1)
+hadcrut4.df <- data.frame(time=hadcrut4.dat[,1], gmst=hadcrut4.dat[,2])
+
+
+hadcrut4.anom <- hadcrut4.df$gmst - mean(hadcrut4.df$gmst[1:30])
+
+hadcrut4.anom.ts <- ts(hadcrut4.anom, start=head(hadcrut4.dat[,1],1), end=tail(hadcrut4.dat[,1],1))
+```
+
+## Displaying HadCRUT4 data
+
+```{r display data, echo=TRUE}
+plot(hadcrut4.anom)
+```
+
+## Displaying HadCRUT4 timeseries
+
+```{r display timeseries data, echo=TRUE}
+plot(hadcrut4.anom.ts)
+```
+
+
+## Choose an ARIMA model
+
+`r library(forecast)`
+
+```{r fit arima, echo=TRUE}
+library(forecast)
+fit <- auto.arima(hadcrut4.anom.ts)
+plot(forecast(fit,h=20))
+
+```
+
+## Including exogenous variables (forcing)
+
+```{r include exo, echo=FALSE}
+#rcpurl <- 'http://www.pik-potsdam.de/~mmalte/rcps/data/RCP6_MIDYEAR_RADFORCING.DAT'
+rcpurl <- 'http://www.pik-potsdam.de/~mmalte/rcps/data/RCP85_MIDYEAR_RADFORCING.DAT'
+#rcpurl <- 'http://www.pik-potsdam.de/~mmalte/rcps/data/RCP45_MIDYEAR_RADFORCING.DAT'
+rcp <- read.table(file = rcpurl, skip = 59, header=TRUE)
+
+# Use the forcing data for both training and prediction
+#index in to create a training and prediction set.
+start.ix <- which(rcp[,1]==1850)
+end.ix <- which(rcp[,1]==2015)
+
+forcing.train <- rcp[start.ix:end.ix,2]
+fitx <- auto.arima(hadcrut4.anom.ts, xreg=forcing.train)
+
+start.ix.pred <- which(rcp[,1]==2016)
+end.ix.pred <- which(rcp[,1]==2100)
+
+pred.forcing <- rcp[start.ix.pred:end.ix.pred,2]
+plot(forecast(fitx,xreg=pred.forcing))
+
+```
+
+
+<!-- # individual climate forcings 1850-2012 -->
+<!-- gissurl.ind <- 'http://data.giss.nasa.gov/modelforce/Fi_Miller_et_al14.txt' -->
+<!-- # all forcing combined -->
+<!-- gissurl.all <- 'http://data.giss.nasa.gov/modelforce/Fi_net_Miller_et_al14.txt' -->
+
+<!-- giss.all <- read.table(file=gissurl.all, header=TRUE, skip=3) -->
+<!-- giss.ts <- ts(data=giss.all[,2], start = head(giss.all[,1],1), end=tail(giss.all[,1],1)) -->
+<!-- plot(giss.ts) -->
+
+<!-- hadcrut4.anom.ts.trunc <- hadcrut4.anom.ts[1:length(giss.ts)] -->
+
+<!-- fitx <- auto.arima(hadcrut4.anom.ts.trunc, xreg=giss.ts) -->
+<!-- plot(forecast(fitx,h=20)) -->
+
+
+
+
+
